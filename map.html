@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MapRisk - Interactive Florida Map with Directions</title>
+<title>MapRisk - Interactive Florida Map with Directions & Animation</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -138,13 +138,37 @@ var routingControl = L.Routing.control({
     show: true
 }).addTo(map);
 
-// Optional: use browser GPS for starting point
+// Optional: use browser GPS as start
 if(navigator.geolocation){
   navigator.geolocation.getCurrentPosition(function(position){
     var userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
     routingControl.setWaypoints([userLatLng]);
   });
 }
+
+// --- Animated marker along route ---
+var movingMarker;
+
+routingControl.on('routesfound', function(e) {
+    var route = e.routes[0];
+    var coords = route.coordinates;
+
+    if(movingMarker) map.removeLayer(movingMarker);
+
+    movingMarker = L.marker(coords[0]).addTo(map);
+
+    var index = 0;
+    var speed = 200; // ms per step
+
+    function move(){
+        if(index < coords.length){
+            movingMarker.setLatLng(coords[index]);
+            index++;
+            setTimeout(move, speed);
+        }
+    }
+    move();
+});
 
 // --- Legend ---
 var legend = L.control({position:'topright'});
@@ -156,7 +180,7 @@ legend.onAdd = function(){
   div.innerHTML += '<div><span class="key" style="background:#ff0000;border:1px solid #aa0000"></span> High risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#ffff00;border:1px solid #aaaa00"></span> Medium risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#00ff00;border:1px solid #00aa00"></span> Low risk (GeoTIFF)</div>';
-  div.innerHTML += '<div><span class="key" style="background:#000000;border:1px solid #000000"></span> Directions route</div>';
+  div.innerHTML += '<div><span class="key" style="background:#0000ff;border:1px solid #0000ff"></span> Animated route marker</div>';
   return div;
 };
 legend.addTo(map);
