@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MapRisk - Interactive Florida Map</title>
+<title>MapRisk - Interactive Florida Map with Directions</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <!-- Leaflet Control Geocoder CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+<!-- Leaflet Routing Machine CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -18,6 +20,8 @@
 <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
 <!-- Leaflet Control Geocoder JS -->
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<!-- Leaflet Routing Machine JS -->
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
 
 <style>
   body { margin:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -38,6 +42,7 @@
 <div id="map"></div>
 
 <script>
+// --- Initialize map ---
 var map = L.map('map').setView([27.8,-81.5],6);
 
 // Base map
@@ -54,7 +59,7 @@ L.Control.geocoder({
     geocoder: L.Control.Geocoder.nominatim()
 }).addTo(map);
 
-// --- Cities ---
+// --- City markers ---
 var cities = [
   {name:"Miami", coords:[25.7617,-80.1918]},
   {name:"Orlando", coords:[28.5383,-81.3792]},
@@ -125,6 +130,22 @@ function addLayersControl(geotiffLayer){
   L.control.layers(null,overlayControls,{collapsed:false}).addTo(map);
 }
 
+// --- Routing/Directions ---
+var routingControl = L.Routing.control({
+    waypoints: [],
+    routeWhileDragging: true,
+    geocoder: L.Control.Geocoder.nominatim(),
+    show: true
+}).addTo(map);
+
+// Optional: use browser GPS for starting point
+if(navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(function(position){
+    var userLatLng = L.latLng(position.coords.latitude, position.coords.longitude);
+    routingControl.setWaypoints([userLatLng]);
+  });
+}
+
 // --- Legend ---
 var legend = L.control({position:'topright'});
 legend.onAdd = function(){
@@ -135,6 +156,7 @@ legend.onAdd = function(){
   div.innerHTML += '<div><span class="key" style="background:#ff0000;border:1px solid #aa0000"></span> High risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#ffff00;border:1px solid #aaaa00"></span> Medium risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#00ff00;border:1px solid #00aa00"></span> Low risk (GeoTIFF)</div>';
+  div.innerHTML += '<div><span class="key" style="background:#000000;border:1px solid #000000"></span> Directions route</div>';
   return div;
 };
 legend.addTo(map);
