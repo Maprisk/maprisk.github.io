@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MapRisk - Interactive Florida Map</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <!-- Georaster libraries for GeoTIFF overlay -->
+  <script src="https://unpkg.com/geotiff/dist/geotiff.browser.min.js"></script>
+  <script src="https://unpkg.com/georaster"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+
+  <style>
+    body { margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #map { height:100vh; width:100%; }
+    .legend {
+      background: white;
+      padding: 10px;
+      line-height: 1.4;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 13px;
+    }
+    .legend .key { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // --- 1. Initialize map centered on Florida ---
+    var map = L.map('map').setView([27.8, -81.5], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // --- 2. Add city markers ---
+    var cities = [
+      { name: "Miami", coords: [25.7617, -80.1918] },
+      { name: "Orlando", coords: [28.5383, -81.3792] },
+      { name: "Tampa", coords: [27.9506, -82.4572] },
+      { name: "Jacksonville", coords: [30.3322, -81.6557] },
+      { name: "Tallahassee", coords: [30.4383, -84.2807] }
+    ];
+
+    cities.forEach(function(city){
+      L.marker(city.coords).addTo(map).bindPopup('<strong>' + city.name + '</strong>');
+    });
+
+    // --- 3. Hurricane cone & uncertainty circles (demo) ---
+    var forecastPoints = [
+      { lat: 25.6, lng: -82.8, radius_m: 60000, time: "T+0 (Now)" },
+      { lat: 27.2, lng: -81.0, radius_m: 120000, time: "T+12h" },
+      { lat: 29.0, lng: -79.4, radius_m: 240000, time: "T+36h" }
+    ];
+
+    var uncertaintyLayer = L.layerGroup();
+    forecastPoints.forEach(function(pt){
+      L.circle([pt.lat, pt.lng], {
+        radius: pt.radius_m,
+        color: '#ff7f00',
+        weight: 1,
+        fillColor: '#ffcf9a',
+        fillOpacity: 0.25
+      }).bindPopup(
+        "<strong>Forecast point</strong><br>" +
+        pt.time + "<br>" +
+        "Uncertainty radius: " + (pt.radius_m/1000).toFixed(0) + " km"
+      ).addTo(uncertaintyLayer);
+
+      L.circleMarker([pt.lat, pt.lng], { radius:5, fill:true, fillColor:'#ff7f00', color:'#fff', weight:1 }).addTo(uncertaintyLayer);
+    });
+
+    var leftEdge = [
+      [24.8, -83.6],
+      [25.6, -83.0],
+      [26.6, -82.0],
+      [27.6, -80.6],
+      [29.0, -79.8]
+    ];
+    var rightEdge = [
+      [24.8, -81.2],
+      [25.6, -80.6],
+      [26.6, -79.6],
+      [27.6, -78.8],
+      [29.0, -78.6]
+    ];
+    var coneCoords = leftEdge.concat(rightEdge.slice().reverse());
+    var conePolygon = L.polygon(coneCoords, {
+      color: '#ff6b00',
+      weight: 2,
+      fillColor: '#ffad66',
+      fillOpacity: 0.25
+    }).bindPopup("<strong>Hurricane cone of uncertainty</strong><br>Demo geometry.");
+
+    var coneLayer = L.layerGroup([conePolygon]);
+
+    // --- 4. GeoTIFF overlay ---
+    fetch("data/hurricane_risk.tif")
+      .then(response => response.arrayBuffer())
+      .then(arrayBuffer => georaster(arrayBuffer))
+      .then(georaster => {
+        var geotiffLayer = new GeoRasterLayer({
+          georaster: georaster,
+          opacity: 0.5,
+          pixelValuesToColorFn: function(values) {
+            var v = values[0];
+            if (v < 50) return "#00ff00";
+            if (v < 150) return "#ffff00";
+            return "#ff0000";
+          },
+          resolution: 128
+        });
+        geotiffLayer.addTo(map);
+
+        // Add to layers control
+        var overlayControls = {
+          "Hurricane cone (demo)": coneLayer,
+          "Uncertainty circles (demo)": uncertaintyLayer,
+          "Risk footprint (GeoTIFF)": geotiffLayer
+        };
+        L.control.layers(null, overlayControls, { collapsed: false }).addTo(map);
+
+        // Fit map to GeoTIFF bounds
+        map.fitBounds(geotiffLayer.getBounds());
+      })
+      .catch(err => console.error("Error loading GeoTIFF:", err));
+
+    // Add hurricane cone and uncertainty by default
+    coneLayer.addTo(map);
+    uncertaintyLayer.addTo(map);
+
+    // --- 5. Legend ---
+    var legend = L.control({ position: 'topright' });
+    legend.onAdd = function () {
+      var div = L.DomUtil.create('div', 'legend');
+      div.innerHTML += '<div style="font-weight:700; margin-bottom:6px;">Map legend</div>';
+      div.innerHTML += '<div><span class="key" style="background:#ffad66; border:1px solid #ff6b00"></span> Hurricane cone (demo)</div>';
+      div.innerHTML += '<div><span class="key" style="background:#ffcf9a; border:1px solid #ff7f00"></span> Uncertainty radius (demo)</div>';
+      div.innerHTML += '<div><span class="key" style="background:#ff0000; border:1px solid #aa0000"></span> High risk (GeoTIFF)</div>';
+      div.innerHTML += '<div><span class="key" style="background:#ffff00; border:1px solid #aaaa00"></span> Medium risk (GeoTIFF)</div>';
+      div.innerHTML += '<div><span class="key" style="background:#00ff00; border:1px solid #00aa00"></span> Low risk (GeoTIFF)</div>';
+      return div;
+    };
+    legend.addTo(map);
+
+  </script>
+</body>
+</html>
