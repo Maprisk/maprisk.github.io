@@ -1,35 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MapRisk - Interactive Florida Map</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MapRisk - Interactive Florida Map</title>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/geotiff/dist/geotiff.browser.min.js"></script>
-  <script src="https://unpkg.com/georaster"></script>
-  <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<!-- Leaflet Control Geocoder CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
-  <style>
-    body { margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    #map { height:100vh; width:100%; }
-    .legend {
-      background:white;
-      padding:10px;
-      border-radius:6px;
-      box-shadow:0 2px 6px rgba(0,0,0,0.15);
-      font-size:13px;
-      line-height:1.4;
-    }
-    .legend .key { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; }
-  </style>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Georaster libraries for GeoTIFF overlay -->
+<script src="https://unpkg.com/geotiff/dist/geotiff.browser.min.js"></script>
+<script src="https://unpkg.com/georaster"></script>
+<script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
+<!-- Leaflet Control Geocoder JS -->
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<style>
+  body { margin:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  #map { height:100vh; width:100%; }
+  .legend {
+    background:white;
+    padding:10px;
+    border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+    font-size:13px;
+    line-height:1.4;
+  }
+  .legend .key { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; }
+</style>
 </head>
 <body>
+
 <div id="map"></div>
 
 <script>
-var map = L.map('map').setView([27.8, -81.5], 6);
+var map = L.map('map').setView([27.8,-81.5],6);
 
 // Base map
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -37,7 +46,15 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:'&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Cities
+// --- Search bar ---
+L.Control.geocoder({
+    defaultMarkGeocode: true,
+    placeholder: "Search location...",
+    position: 'topright',
+    geocoder: L.Control.Geocoder.nominatim()
+}).addTo(map);
+
+// --- Cities ---
 var cities = [
   {name:"Miami", coords:[25.7617,-80.1918]},
   {name:"Orlando", coords:[28.5383,-81.3792]},
@@ -49,18 +66,18 @@ cities.forEach(function(city){
   L.marker(city.coords).addTo(map).bindPopup('<strong>'+city.name+'</strong>');
 });
 
-// Hurricane cone
+// --- Hurricane cone ---
 var leftEdge = [[24.8,-83.6],[25.6,-83.0],[26.6,-82.0],[27.6,-80.6],[29.0,-79.8]];
 var rightEdge = [[24.8,-81.2],[25.6,-80.6],[26.6,-79.6],[27.6,-78.8],[29.0,-78.6]];
 var coneCoords = leftEdge.concat(rightEdge.slice().reverse());
-var coneLayer = L.polygon(coneCoords, {
+var coneLayer = L.polygon(coneCoords,{
   color:'#ff4500',
   weight:2,
   fillColor:'#ff6b00',
   fillOpacity:0.5
 }).bindPopup("Hurricane cone (demo)").addTo(map);
 
-// Uncertainty circles
+// --- Uncertainty circles ---
 var forecastPoints = [
   {lat:25.6,lng:-82.8,radius_m:60000,time:"T+0"},
   {lat:27.2,lng:-81.0,radius_m:120000,time:"T+12h"},
@@ -78,7 +95,7 @@ forecastPoints.forEach(function(pt){
 });
 uncertaintyLayer.addTo(map);
 
-// GeoTIFF overlay
+// --- GeoTIFF overlay ---
 fetch("data/hurricane_risk.tif")
 .then(r=>r.arrayBuffer())
 .then(arrayBuffer=>georaster(arrayBuffer))
@@ -98,32 +115,17 @@ fetch("data/hurricane_risk.tif")
   addLayersControl(geotiffLayer);
 });
 
-// NOAA Hurricane Ian image overlay (clickable)
-var ianBounds = [[24.0,-87.0],[31.0,-75.0]];
-var ianOverlay = L.imageOverlay('data/ian_satellite.jpg', ianBounds,{
-  opacity:0.7,
-  interactive:true
-});
-ianOverlay.on('click',function(){
-  L.popup()
-    .setLatLng([27.5,-81.0])
-    .setContent('<strong>Hurricane Ian Image</strong><br><a href="https://storms.ngs.noaa.gov/storms/ian/index.html" target="_blank">View NOAA images</a>')
-    .openOn(map);
-});
-ianOverlay.addTo(map);
-
-// Layer control
+// --- Layer control ---
 function addLayersControl(geotiffLayer){
   var overlayControls = {
     "Hurricane cone": coneLayer,
     "Uncertainty circles": uncertaintyLayer,
-    "GeoTIFF risk": geotiffLayer,
-    "Hurricane Ian Image": ianOverlay
+    "GeoTIFF risk": geotiffLayer
   };
   L.control.layers(null,overlayControls,{collapsed:false}).addTo(map);
 }
 
-// Legend
+// --- Legend ---
 var legend = L.control({position:'topright'});
 legend.onAdd = function(){
   var div = L.DomUtil.create('div','legend');
@@ -133,10 +135,10 @@ legend.onAdd = function(){
   div.innerHTML += '<div><span class="key" style="background:#ff0000;border:1px solid #aa0000"></span> High risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#ffff00;border:1px solid #aaaa00"></span> Medium risk (GeoTIFF)</div>';
   div.innerHTML += '<div><span class="key" style="background:#00ff00;border:1px solid #00aa00"></span> Low risk (GeoTIFF)</div>';
-  div.innerHTML += '<div><span class="key" style="background:#8888ff;border:1px solid #0000ff"></span> Hurricane Ian Image (clickable)</div>';
   return div;
 };
 legend.addTo(map);
+
 </script>
 </body>
 </html>
