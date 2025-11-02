@@ -1,21 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MapRisk - Florida Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MapRisk - Florida Map with Hurricane Cone</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
+    body { margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    #map { height:100vh; width:100%; }
+    .legend {
+      background: white;
+      padding: 10px;
+      line-height: 1.4;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 13px;
     }
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-    .leaflet-control-attribution {
-      display: none;
+    .legend .key { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle; }
+    .toggle-btn {
+      background: white;
+      padding: 6px 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      cursor: pointer;
     }
   </style>
 </head>
@@ -24,15 +32,15 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Create the map centered on Florida
-    var map = L.map('map').setView([27.6648, -81.5158], 6);
+    // --- Basic map setup centered on Florida ---
+    var map = L.map('map').setView([27.8, -81.5], 6);
 
-    // Add base map layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Example markers
+    // --- Example city markers ---
     var cities = [
       { name: "Miami", coords: [25.7617, -80.1918] },
       { name: "Orlando", coords: [28.5383, -81.3792] },
@@ -41,9 +49,100 @@
       { name: "Tallahassee", coords: [30.4383, -84.2807] }
     ];
 
-    cities.forEach(city => {
-      L.marker(city.coords).addTo(map).bindPopup(`<b>${city.name}</b>`);
+    cities.forEach(function(city){
+      L.marker(city.coords).addTo(map).bindPopup('<strong>' + city.name + '</strong>');
     });
+
+    // -----------------------
+    // --- Hurricane Cone ---
+    // -----------------------
+    // NOTE: This is example/demo geometry. Replace forecastPoints with real data to show true forecasts.
+
+    // Forecast "track" points with uncertainty radii (meters). Times are example strings.
+    var forecastPoints = [
+      { lat: 25.6, lng: -82.8, radius_m: 60000, time: "T+0 (Now)" },   // near SW Florida
+      { lat: 27.2, lng: -81.0, radius_m: 120000, time: "T+12h" },      // inland/up the state
+      { lat: 29.0, lng: -79.4, radius_m: 240000, time: "T+36h" }       // off to NE
+    ];
+
+    // Create uncertainty circles for each forecast point
+    var uncertaintyLayer = L.layerGroup();
+    forecastPoints.forEach(function(pt, i){
+      var circle = L.circle([pt.lat, pt.lng], {
+        radius: pt.radius_m,
+        color: '#ff7f00',
+        weight: 1,
+        fillColor: '#ffcf9a',
+        fillOpacity: 0.25
+      }).bindPopup(
+        "<strong>Forecast point</strong><br>" +
+        pt.time + "<br>" +
+        "Uncertainty radius: " + (pt.radius_m/1000).toFixed(0) + " km"
+      );
+      circle.addTo(uncertaintyLayer);
+
+      // Also place a small marker for the center point
+      L.circleMarker([pt.lat, pt.lng], { radius:5, fill:true, fillColor:'#ff7f00', color:'#fff', weight:1 }).addTo(uncertaintyLayer);
+    });
+
+    // Build a rough cone polygon from "left edge" and "right edge" coordinates.
+    // This is a stylistic cone built around the forecast points; for accurate cones use real left/right bounding coordinates.
+    var leftEdge = [
+      [24.8, -83.6],
+      [25.6, -83.0],
+      [26.6, -82.0],
+      [27.6, -80.6],
+      [29.0, -79.8]
+    ];
+
+    var rightEdge = [
+      [24.8, -81.2],
+      [25.6, -80.6],
+      [26.6, -79.6],
+      [27.6, -78.8],
+      [29.0, -78.6]
+    ];
+
+    // Combine edges to create a closed polygon (left edge forward + right edge reversed)
+    var coneCoords = leftEdge.concat(rightEdge.slice().reverse());
+
+    var conePolygon = L.polygon(coneCoords, {
+      color: '#ff6b00',
+      weight: 2,
+      fillColor: '#ffad66',
+      fillOpacity: 0.25
+    }).bindPopup("<strong>Hurricane cone of uncertainty</strong><br>This polygon represents a sample forecast cone (demo data).");
+
+    // Layer groups to toggle
+    var coneLayer = L.layerGroup([conePolygon]);
+    var overlayControls = {
+      "Hurricane cone (demo)": coneLayer,
+      "Uncertainty circles (demo)": uncertaintyLayer
+    };
+
+    // Add layers control (on map)
+    L.control.layers(null, overlayControls, { collapsed: false }).addTo(map);
+
+    // Add both by default
+    coneLayer.addTo(map);
+    uncertaintyLayer.addTo(map);
+
+    // --- Legend (top-right) ---
+    var legend = L.control({ position: 'topright' });
+    legend.onAdd = function () {
+      var div = L.DomUtil.create('div', 'legend');
+      div.innerHTML += '<div style="font-weight:700; margin-bottom:6px;">Map legend</div>';
+      div.innerHTML += '<div><span class="key" style="background:#ffad66; border:1px solid #ff6b00"></span> Hurricane cone (demo)</div>';
+      div.innerHTML += '<div style="margin-top:6px;"><span class="key" style="background:#ffcf9a; border:1px solid #ff7f00"></span> Uncertainty radius (demo)</div>';
+      div.innerHTML += '<div style="margin-top:8px; font-size:12px; color:#555;">Note: demo geometry. Replace with real forecast data for operational use.</div>';
+      return div;
+    };
+    legend.addTo(map);
+
+    // --- Optional: focus map to cone bounds ---
+    var allBounds = L.latLngBounds(coneCoords);
+    map.fitBounds(allBounds.pad(0.25));
+
   </script>
 </body>
 </html>
