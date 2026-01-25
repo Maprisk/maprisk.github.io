@@ -1,96 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+<head>
+  <meta charset="UTF-8">
+  <title>JS Insights – Million Dot Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Dot Density – JS Insights</title>
+  <!-- Mapbox GL JS -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
 
-    <!-- Calcite Components (UI) -->
-    <script type="module" src="https://js.arcgis.com/calcite-components/3.3.3/calcite.esm.js"></script>
+  <!-- deck.gl -->
+  <script src="https://unpkg.com/deck.gl@8.9.34/dist.min.js"></script>
 
-    <!-- ArcGIS Maps SDK -->
-    <script src="https://js.arcgis.com/4.34/"></script>
+  <style>
+    body { margin: 0; background: #111; }
+    #map { position: absolute; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
 
-    <!-- ArcGIS Map Components -->
-    <script type="module" src="https://js.arcgis.com/4.34/map-components/"></script>
+  <script>
+    // 🔑 Add your Mapbox token here
+    mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN_HERE";
 
-    <style>
-      html, body {
-        height: 100%;
-        margin: 0;
-      }
-      arcgis-map {
-        height: 100%;
-        width: 100%;
-      }
-    </style>
-  </head>
+    // Initial map view
+    const INITIAL_VIEW_STATE = {
+      longitude: 0,
+      latitude: 20,
+      zoom: 2,
+      pitch: 0,
+      bearing: 0
+    };
 
-  <body class="calcite-mode-dark">
-    <arcgis-map item-id="56b5bd522c52409c90d902285732e9f1">
-      <arcgis-zoom slot="top-left"></arcgis-zoom>
-      <arcgis-expand slot="top-left" group="top-left">
-        <arcgis-legend></arcgis-legend>
-      </arcgis-expand>
-      <arcgis-expand slot="top-left" group="top-left">
-        <arcgis-bookmarks></arcgis-bookmarks>
-      </arcgis-expand>
-    </arcgis-map>
+    const POINT_COUNT = 2_000_000; // 2 million points
+    const positions = new Float32Array(POINT_COUNT * 2);
+    const colors = new Uint8Array(POINT_COUNT * 4);
 
-    <script type="module">
-      const [FeatureLayer, DotDensityRenderer] = await $arcgis.import([
-        "@arcgis/core/layers/FeatureLayer.js",
-        "@arcgis/core/renderers/DotDensityRenderer.js"
-      ]);
-
-      // 🔥 Optimized Dot Density Renderer
-      const dotDensityRenderer = new DotDensityRenderer({
-        dotValue: 500, // higher value = fewer dots = faster
-        outline: null,
-        referenceScale: 577790,
-        legendOptions: { unit: "people" },
-        attributes: [
-          { field: "B03002_003E", color: "#f23c3f", label: "White (non-Hispanic)" },
-          { field: "B03002_012E", color: "#e8ca0d", label: "Hispanic" },
-          { field: "B03002_004E", color: "#00b6f1", label: "Black or African American" },
-          { field: "B03002_006E", color: "#32ef94", label: "Asian" },
-          { field: "B03002_005E", color: "#ff7fe9", label: "American Indian/Alaskan Native" },
-          { field: "B03002_007E", color: "#e2c4a5", label: "Pacific Islander/Hawaiian Native" },
-          { field: "B03002_008E", color: "#ff6a00", label: "Other race" },
-          { field: "B03002_009E", color: "#96f7ef", label: "Two or more races" }
-        ]
-      });
-
-      const layer = new FeatureLayer({
-        url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/2",
-        minScale: 5000000,  // start showing dots only when zoomed in
-        maxScale: 35000,    // stop at street level
-        title: "Current Population Estimates (ACS)",
-        renderer: dotDensityRenderer,
-        popupTemplate: {
-          title: "{County}, {State}",
-          content: [
-            {
-              type: "fields",
-              fieldInfos: [
-                { fieldName: "B03002_003E", label: "White", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_004E", label: "Black", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_006E", label: "Asian", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_012E", label: "Hispanic", format: { digitSeparator: true, places: 0 } }
-              ]
-            }
-          ]
-        }
-      });
-
-      const viewElement = document.querySelector("arcgis-map");
-      viewElement.constraints = { maxScale: 35000 };
-      viewElement.popup = { dockEnabled: true, dockOptions: { position: "top-right", breakpoint: false } };
-      viewElement.highlights = [{ name: "default", fillOpacity: 0, color: [255, 255, 255] }];
-
-      await viewElement.viewOnReady();
-      viewElement.map.add(layer);
-    </script>
-  </body>
-</html>
+    // Example category colors (like your ArcGIS racial groups)
+   
