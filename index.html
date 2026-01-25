@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <title>Random US Dot Map | JS Insights</title>
+  <title>Random US Dots</title>
 
-  <!-- ArcGIS JS SDK -->
   <script src="https://js.arcgis.com/4.34/"></script>
+  <script type="module" src="https://js.arcgis.com/4.34/map-components/"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -21,20 +21,18 @@
   </arcgis-map>
 
   <script type="module">
-    const [GraphicsLayer, Graphic, SimpleRenderer, Point] = await $arcgis.import([
+    const [GraphicsLayer, Graphic, Point] = await $arcgis.import([
       "@arcgis/core/layers/GraphicsLayer.js",
       "@arcgis/core/Graphic.js",
-      "@arcgis/core/renderers/SimpleRenderer.js",
       "@arcgis/core/geometry/Point.js"
     ]);
 
     const viewEl = document.querySelector("arcgis-map");
     await viewEl.viewOnReady();
 
-    // 🔹 Create a graphics layer for random US dots
-    const graphicsLayer = new GraphicsLayer({ title: "Random US Locations" });
+    const graphicsLayer = new GraphicsLayer({ title: "Random US Dots" });
 
-    const POINT_COUNT = 2000;
+    const POINT_COUNT = 2000; // Increase for denser map
     const colors = [
       [255, 50, 50, 180],
       [50, 255, 50, 180],
@@ -43,7 +41,7 @@
     ];
 
     for (let i = 0; i < POINT_COUNT; i++) {
-      const lon = -125 + Math.random() * 58; // US bounds
+      const lon = -125 + Math.random() * 58; // Rough US bounds
       const lat = 25 + Math.random() * 24;
 
       const graphic = new Graphic({
@@ -52,7 +50,7 @@
           type: "simple-marker",
           style: "circle",
           size: 6,
-          color: colors[Math.floor(Math.random()*colors.length)]
+          color: colors[Math.floor(Math.random() * colors.length)]
         }
       });
 
@@ -61,5 +59,6 @@
 
     viewEl.map.add(graphicsLayer);
   </script>
+
 </body>
 </html>
