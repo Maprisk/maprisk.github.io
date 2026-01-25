@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>US Population Dot Map</title>
+  <meta charset="UTF-8" />
+  <title>US Population Dot Map – 1M Points</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Mapbox GL JS -->
@@ -22,55 +22,50 @@
   <div id="map"></div>
 
   <script>
+    // 🔑 Replace with your Mapbox token
     mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN_HERE";
 
     const INITIAL_VIEW_STATE = {
-      longitude: -98.5795,
+      longitude: -98.5795, // center of continental USA
       latitude: 39.8283,
-      zoom: 3,
+      zoom: 3.5,
       pitch: 0,
       bearing: 0
     };
 
-    // Fetch your population locations
-    fetch("usa_population.json")
-      .then(res => res.json())
-      .then(data => {
-        const points = [];
+    const POINT_COUNT = 1_000_000; // 1 million points
 
-        // Expand each location into many points based on pop
-        data.forEach(loc => {
-          // Normalize scale factor so we don't spawn 100M
-          const count = Math.min(loc.pop / 1000, 500); 
-          for (let i=0; i<count; i++) {
-            points.push({
-              position: [
-                loc.lon + (Math.random()-0.5)*0.1,
-                loc.lat + (Math.random()-0.5)*0.1
-              ],
-            });
-          }
-        });
+    const positions = new Float32Array(POINT_COUNT * 2);
+    const colors = new Uint8Array(POINT_COUNT * 4);
 
-        const scatterLayer = new deck.ScatterplotLayer({
-          id: "population-points",
-          data: points,
-          getPosition: d => d.position,
-          getFillColor: [255, 128, 64],
-          radiusMinPixels: 1,
-          radiusMaxPixels: 4,
-          opacity: 0.6
-        });
+    // Simulate population-weighted points in the continental USA
+    for (let i = 0; i < POINT_COUNT; i++) {
+      // Approximate US bounds
+      const lon = -125 + Math.random() * 58; // -125 → -67
+      const lat = 25 + Math.random() * 24;   // 25 → 49
 
-        const deckgl = new deck.DeckGL({
-          container: "map",
-          mapStyle: "mapbox://styles/mapbox/dark-v11",
-          initialViewState: INITIAL_VIEW_STATE,
-          controller: true,
-          layers: [scatterLayer]
-        });
-      })
-      .catch(err => console.error("Population data load error:", err));
-  </script>
-</body>
-</html>
+      // Optional: skew points toward higher population areas (East Coast, California)
+      const popFactor = Math.random();
+      const eastCoastBias = Math.random() < 0.3 ? -80 + Math.random() * 5 : lon; // 30% East Coast
+      const caliBias = Math.random() < 0.1 ? -120 + Math.random() * 5 : lon;    // 10% California
+
+      positions[i * 2] = Math.random() < 0.3 ? eastCoastBias : Math.random() < 0.1 ? caliBias : lon;
+      positions[i * 2 + 1] = lat;
+
+      // Random color for demo
+      colors[i * 4] = 255;
+      colors[i * 4 + 1] = 100 + Math.random()*50;
+      colors[i * 4 + 2] = 50;
+      colors[i * 4 + 3] = 160; // alpha
+    }
+
+    // Create the deck.gl ScatterplotLayer
+    const scatterLayer = new deck.ScatterplotLayer({
+      id: "population-points",
+      data: {
+        length: POINT_COUNT,
+        attributes: {
+          getPosition: { value: positions, size: 2 },
+          getFillColor: { value: colors, size: 4 }
+        }
+      },
