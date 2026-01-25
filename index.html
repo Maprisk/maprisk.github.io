@@ -3,62 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <title>Random US Dots</title>
-
+  <title>Random US Dot Density</title>
   <script src="https://js.arcgis.com/4.34/"></script>
   <script type="module" src="https://js.arcgis.com/4.34/map-components/"></script>
-
   <style>
-    html, body { height: 100%; margin: 0; }
-    arcgis-map { width: 100%; height: 100%; display: block; }
+    html, body { margin:0; height:100%; }
+    arcgis-map { width:100%; height:100%; display:block; }
   </style>
 </head>
 <body class="calcite-mode-dark">
 
-  <arcgis-map>
-    <arcgis-zoom slot="top-left"></arcgis-zoom>
-  </arcgis-map>
+<arcgis-map>
+  <arcgis-zoom slot="top-left"></arcgis-zoom>
+</arcgis-map>
 
-  <script type="module">
-    const [GraphicsLayer, Graphic, Point] = await $arcgis.import([
-      "@arcgis/core/layers/GraphicsLayer.js",
-      "@arcgis/core/Graphic.js",
-      "@arcgis/core/geometry/Point.js"
-    ]);
+<script type="module">
+const [FeatureLayer, DotDensityRenderer, Polygon] = await $arcgis.import([
+  "@arcgis/core/layers/FeatureLayer.js",
+  "@arcgis/core/renderers/DotDensityRenderer.js",
+  "@arcgis/core/geometry/Polygon.js"
+]);
 
-    const viewEl = document.querySelector("arcgis-map");
-    await viewEl.viewOnReady();
+const viewEl = document.querySelector("arcgis-map");
+await viewEl.viewOnReady();
 
-    const graphicsLayer = new GraphicsLayer({ title: "Random US Dots" });
+// 🔹 Generate a grid of polygons across the USA
+const polygons = [];
+const cols = 50;  // 50 columns across USA
+const rows = 20;  // 20 rows
+const minLon = -125, maxLon = -66;
+const minLat = 25, maxLat = 50;
+const cellWidth = (maxLon - minLon)/cols;
+const cellHeight = (maxLat - minLat)/rows;
 
-    const POINT_COUNT = 2000; // Increase for denser map
-    const colors = [
-      [255, 50, 50, 180],
-      [50, 255, 50, 180],
-      [50, 50, 255, 180],
-      [255, 255, 50, 180]
-    ];
+for (let r=0; r<rows; r++){
+  for (let c=0; c<cols; c++){
+    const x0 = minLon + c*cellWidth;
+    const y0 = minLat + r*cellHeight;
+    const x1 = x0 + cellWidth;
+    const y1 = y0 + cellHeight;
 
-    for (let i = 0; i < POINT_COUNT; i++) {
-      const lon = -125 + Math.random() * 58; // Rough US bounds
-      const lat = 25 + Math.random() * 24;
+    polygons.push({
+      geometry: new Polygon({ rings: [[
+        [x0,y0], [x1,y0], [x1,y1], [x0,y1], [x0,y0]
+      ]]}),
+      attributes: {
+        Red: Math.floor(Math.random()*5000),
+        Blue: Math.floor(Math.random()*5000),
+        Green: Math.floor(Math.random()*5000),
+        Yellow: Math.floor(Math.random()*5000)
+      }
+    });
+  }
+}
 
-      const graphic = new Graphic({
-        geometry: new Point({ longitude: lon, latitude: lat }),
-        symbol: {
-          type: "simple-marker",
-          style: "circle",
-          size: 6,
-          color: colors[Math.floor(Math.random() * colors.length)]
-        }
-      });
+// 🔹 Create DotDensityRenderer
+const dotRenderer = new DotDensityRenderer({
+  dotValue: 1,  // each dot = 1 "person"
+  outline: null,
+  referenceScale: 577790,
+  legendOptions: { unit: "dots" },
+  attributes: [
+    { field:"Red", color:"#f23c3f", label:"Red" },
+    { field:"Blue", color:"#00b6f1", label:"Blue" },
+    { field:"Green", color:"#32ef94", label:"Green" },
+    { field:"Yellow", color:"#ffd700", label:"Yellow" }
+  ]
+});
 
-      graphicsLayer.add(graphic);
-    }
+// 🔹 Create FeatureLayer from the polygons
+const layer = new FeatureLayer({
+  source: polygons,
+  objectIdField: "ObjectID",
+  renderer: dotRenderer,
+  title: "Random US Dot Density"
+});
 
-    viewEl.map.add(graphicsLayer);
-  </script>
-
+viewEl.map.add(layer);
+</script>
 </body>
 </html>
+
