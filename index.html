@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JS Insights – Millions of Dots</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Mapbox -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link
+    href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css"
+    rel="stylesheet"
+  />
+
+  <!-- deck.gl -->
+  <script src="https://unpkg.com/deck.gl@8.9.34/dist.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+    }
+    #map {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <script>
+    // ⚠️ REQUIRED: free Mapbox token
+    mapboxgl.accessToken = "YOUR_MAPBOX_TOKEN_HERE";
+
+    const INITIAL_VIEW_STATE = {
+      longitude: 0,
+      latitude: 20,
+      zoom: 2,
+      pitch: 0,
+      bearing: 0
+    };
+
+    // 🔥 Generate MILLIONS of points (GPU-friendly)
+    const POINT_COUNT = 2_000_000;
+
+    const positions = new Float32Array(POINT_COUNT * 2);
+    const colors = new Uint8Array(POINT_COUNT * 4);
+
+    for (let i = 0; i < POINT_COUNT; i++) {
+      // Random global distribution
+      positions[i * 2] = -180 + Math.random() * 360;
+      positions[i * 2 + 1] = -85 + Math.random() * 170;
+
+      colors[i * 4] = 255;
+      colors[i * 4 + 1] = 100;
+      colors[i * 4 + 2] = 50;
+      colors[i * 4 + 3] = 160;
+    }
+
+    const scatterLayer = new deck.ScatterplotLayer({
+      id: "million-dots",
+      data: {
+        length: POINT_COUNT,
+        attributes: {
+          getPosition: { value: positions, size: 2 },
+          getFillColor: { value: colors, size: 4 }
+        }
+      },
+      radiusMinPixels: 1,
+      radiusMaxPixels: 3,
+      opacity: 0.8,
+      pickable: false
+    });
+
+    const deckgl = new deck.DeckGL({
+      container: "map",
+      mapStyle: "mapbox://styles/mapbox/dark-v11",
+      initialViewState: INITIAL_VIEW_STATE,
+      controller: true,
+      layers: [scatterLayer]
+    });
+
+    // 🔥 OPTIONAL: animate dots (fake "millions per second")
+    function animate() {
+      for (let i = 0; i < POINT_COUNT; i += 5) {
+        positions[i * 2] += (Math.random() - 0.5) * 0.01;
+        positions[i * 2 + 1] += (Math.random() - 0.5) * 0.01;
+      }
+      deckgl.setProps({
+        layers: [scatterLayer.clone({})]
+      });
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
