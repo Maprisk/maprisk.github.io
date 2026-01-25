@@ -4,93 +4,75 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Dot Density – JS Insights</title>
+    <title>Random US Dot Map | JS Insights</title>
 
-    <!-- Calcite Components (UI) -->
+    <!-- Calcite Components -->
     <script type="module" src="https://js.arcgis.com/calcite-components/3.3.3/calcite.esm.js"></script>
 
     <!-- ArcGIS Maps SDK -->
     <script src="https://js.arcgis.com/4.34/"></script>
 
-    <!-- ArcGIS Map Components -->
-    <script type="module" src="https://js.arcgis.com/4.34/map-components/"></script>
-
     <style>
-      html, body {
-        height: 100%;
-        margin: 0;
-      }
-      arcgis-map {
-        height: 100%;
-        width: 100%;
-      }
+      html, body { height: 100%; margin: 0; }
+      arcgis-map { width: 100%; height: 100%; }
     </style>
   </head>
 
   <body class="calcite-mode-dark">
-    <arcgis-map item-id="56b5bd522c52409c90d902285732e9f1">
+    <arcgis-map>
       <arcgis-zoom slot="top-left"></arcgis-zoom>
       <arcgis-expand slot="top-left" group="top-left">
         <arcgis-legend></arcgis-legend>
       </arcgis-expand>
-      <arcgis-expand slot="top-left" group="top-left">
-        <arcgis-bookmarks></arcgis-bookmarks>
-      </arcgis-expand>
     </arcgis-map>
 
     <script type="module">
-      const [FeatureLayer, DotDensityRenderer] = await $arcgis.import([
+      const [FeatureLayer, DotDensityRenderer, Graphic, GraphicsLayer, SimpleRenderer, Point] = await $arcgis.import([
         "@arcgis/core/layers/FeatureLayer.js",
-        "@arcgis/core/renderers/DotDensityRenderer.js"
+        "@arcgis/core/renderers/DotDensityRenderer.js",
+        "@arcgis/core/Graphic.js",
+        "@arcgis/core/layers/GraphicsLayer.js",
+        "@arcgis/core/renderers/SimpleRenderer.js",
+        "@arcgis/core/geometry/Point.js"
       ]);
 
-      // 🔥 Optimized Dot Density Renderer
-      const dotDensityRenderer = new DotDensityRenderer({
-        dotValue: 500, // higher value = fewer dots = faster
-        outline: null,
-        referenceScale: 577790,
-        legendOptions: { unit: "people" },
-        attributes: [
-          { field: "B03002_003E", color: "#f23c3f", label: "White (non-Hispanic)" },
-          { field: "B03002_012E", color: "#e8ca0d", label: "Hispanic" },
-          { field: "B03002_004E", color: "#00b6f1", label: "Black or African American" },
-          { field: "B03002_006E", color: "#32ef94", label: "Asian" },
-          { field: "B03002_005E", color: "#ff7fe9", label: "American Indian/Alaskan Native" },
-          { field: "B03002_007E", color: "#e2c4a5", label: "Pacific Islander/Hawaiian Native" },
-          { field: "B03002_008E", color: "#ff6a00", label: "Other race" },
-          { field: "B03002_009E", color: "#96f7ef", label: "Two or more races" }
-        ]
+      const viewElement = document.querySelector("arcgis-map");
+      await viewElement.viewOnReady();
+
+      // 🔹 Random points generator
+      const POINT_COUNT = 2000; // You can increase
+      const graphics = [];
+
+      for (let i = 0; i < POINT_COUNT; i++) {
+        const lon = -125 + Math.random() * 58; // Rough US bounds
+        const lat = 25 + Math.random() * 24;   // Rough US bounds
+
+        const g = new Graphic({
+          geometry: new Point({ longitude: lon, latitude: lat }),
+          attributes: {
+            category: ["Red","Blue","Green","Yellow"][Math.floor(Math.random()*4)]
+          }
+        });
+        graphics.push(g);
+      }
+
+      const graphicsLayer = new GraphicsLayer({
+        title: "Random US Locations",
+        graphics: graphics
       });
 
-      const layer = new FeatureLayer({
-        url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/ACS_Population_by_Race_and_Hispanic_Origin_Boundaries/FeatureServer/2",
-        minScale: 5000000,  // start showing dots only when zoomed in
-        maxScale: 35000,    // stop at street level
-        title: "Current Population Estimates (ACS)",
-        renderer: dotDensityRenderer,
-        popupTemplate: {
-          title: "{County}, {State}",
-          content: [
-            {
-              type: "fields",
-              fieldInfos: [
-                { fieldName: "B03002_003E", label: "White", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_004E", label: "Black", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_006E", label: "Asian", format: { digitSeparator: true, places: 0 } },
-                { fieldName: "B03002_012E", label: "Hispanic", format: { digitSeparator: true, places: 0 } }
-              ]
-            }
-          ]
+      // 🔹 Simple renderer using dot density style
+      const renderer = new SimpleRenderer({
+        symbol: {
+          type: "simple-marker",
+          style: "circle",
+          size: 6,
+          color: [255, 50, 50, 0.7] // semi-transparent red
         }
       });
+      graphicsLayer.renderer = renderer;
 
-      const viewElement = document.querySelector("arcgis-map");
-      viewElement.constraints = { maxScale: 35000 };
-      viewElement.popup = { dockEnabled: true, dockOptions: { position: "top-right", breakpoint: false } };
-      viewElement.highlights = [{ name: "default", fillOpacity: 0, color: [255, 255, 255] }];
-
-      await viewElement.viewOnReady();
-      viewElement.map.add(layer);
+      viewElement.map.add(graphicsLayer);
     </script>
   </body>
 </html>
